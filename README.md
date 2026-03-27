@@ -1,6 +1,6 @@
 # breadcrumb — Skill de compresión de contexto para Claude Code
 
-> **Carga el entendimiento completo de tu proyecto en ~300 tokens en lugar de ~40,000.**
+> **Reduce el consumo de tokens de Claude Code entre un 75% y 97% por sesión.**
 
 Un skill de Claude Code que reemplaza la lectura del codebase completo al inicio de cada sesión por una instantánea estructurada y siempre actualizada de la arquitectura, decisiones técnicas y tareas pendientes de tu proyecto.
 
@@ -10,7 +10,7 @@ Un skill de Claude Code que reemplaza la lectura del codebase completo al inicio
 
 En cada sesión nueva, Claude re-lee el codebase desde cero.
 
-En un proyecto real, eso cuesta **40,000–60,000 tokens antes de escribir una sola línea de código**. El 95% de esas lecturas son redundantes — el código no cambió.
+En un proyecto real, eso cuesta **40,000–60,000 tokens antes de escribir una sola línea de código**. El 95% de esas lecturas son redundantes — el código rara vez cambia entre sesiones.
 
 La causa raíz: Claude no tiene "memoria" de lo que es tu proyecto. Solo tiene lo que lee en la ventana de contexto actual.
 
@@ -80,7 +80,7 @@ USUARIO EJECUTA: /breadcrumb
 │  📌 Pendiente: fix /contact, crear llms.txt             │
 └─────────────────────────────────────────────────────────┘
 
-Tokens totales usados: 300–800 (vs. 40,000+ sin breadcrumb)
+Tokens totales usados: 500–1,000 (vs. 40,000+ sin breadcrumb)
 ```
 
 ---
@@ -184,12 +184,12 @@ USUARIO EJECUTA: /breadcrumb init  (solo una vez por proyecto)
 
 | Escenario | Sin breadcrumb | Con breadcrumb | Ahorro |
 |----------|--------------------|-----------------|---------|
-| Sesión típica (0–2 archivos cambiaron) | ~40,000 | 300–800 | **98%** |
+| Sesión típica (0–2 archivos cambiaron) | ~40,000 | 500–1,000 | **~97%** |
+| Solo preguntas / consultas | ~40,000 | ~400 | **99%** |
 | Feature nueva (10 archivos) | ~40,000 | 5,000–12,000 | **75%** |
-| Solo preguntas / consultas | ~40,000 | 300 | **99%** |
 | Refactor masivo (todo cambia) | ~40,000 | ~40,000 | 0% *(caso raro)* |
 
-> El ahorro del 50% es el escenario **conservador**. La mayoría de sesiones ahorra 90–98%.
+> El rango real de ahorro en uso cotidiano es **entre un 75% y 97%** dependiendo de cuánto cambió el codebase.
 
 ---
 

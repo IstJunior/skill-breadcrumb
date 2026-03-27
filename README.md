@@ -1,102 +1,102 @@
-# breadcrumb — Context Compression Skill for Claude Code
+# breadcrumb — Skill de compresión de contexto para Claude Code
 
-> **Load full project understanding in ~300 tokens instead of ~40,000.**
+> **Carga el entendimiento completo de tu proyecto en ~300 tokens en lugar de ~40,000.**
 
-A Claude Code skill that replaces reading the raw codebase at session start with a structured, always-fresh snapshot of your project's architecture, decisions, and pending work.
-
----
-
-## The Problem
-
-Every new Claude Code session, the AI re-reads your codebase from scratch.
-
-In a real project, that costs **40,000–60,000 tokens before writing a single line of code**. 95% of those reads are redundant — the code didn't change.
-
-The root cause: Claude doesn't have a "memory" of what your project is. It only has what it reads in the current context window.
-
-**breadcrumb** solves this without requiring any special infrastructure — just two markdown files and a skill.
+Un skill de Claude Code que reemplaza la lectura del codebase completo al inicio de cada sesión por una instantánea estructurada y siempre actualizada de la arquitectura, decisiones técnicas y tareas pendientes de tu proyecto.
 
 ---
 
-## How It Works
+## El problema que resuelve
 
-The system has three components:
+En cada sesión nueva, Claude re-lee el codebase desde cero.
 
-| Component | Location | Purpose |
+En un proyecto real, eso cuesta **40,000–60,000 tokens antes de escribir una sola línea de código**. El 95% de esas lecturas son redundantes — el código no cambió.
+
+La causa raíz: Claude no tiene "memoria" de lo que es tu proyecto. Solo tiene lo que lee en la ventana de contexto actual.
+
+**breadcrumb** resuelve esto sin requerir infraestructura especial — solo dos archivos markdown y un skill.
+
+---
+
+## Cómo funciona
+
+El sistema tiene tres componentes:
+
+| Componente | Ubicación | Propósito |
 |-----------|----------|---------|
-| `system-map.md` | `.claude/context/system-map.md` | Compressed architecture map (~400–600 tokens) |
-| `session-log.md` | `.claude/context/session-log.md` | Last 5 sessions: what changed and **why** |
-| `breadcrumb.md` | `~/.claude/skills/breadcrumb.md` | Instructions that tell Claude how to use the above |
+| `system-map.md` | `.claude/context/system-map.md` | Mapa de arquitectura comprimido (~400–600 tokens) |
+| `session-log.md` | `.claude/context/session-log.md` | Últimas 5 sesiones: qué cambió y **por qué** |
+| `breadcrumb.md` | `~/.claude/skills/breadcrumb.md` | Instrucciones que le dicen a Claude cómo usar lo anterior |
 
-Instead of reading 50 files, Claude reads 2 files and a git diff. It understands the same codebase with 98% fewer tokens.
+En lugar de leer 50 archivos, Claude lee 2 archivos y un git diff. Entiende el mismo codebase con 98% menos tokens.
 
 ---
 
-## Technical Flow
+## Flujo técnico
 
-### Session Start — `/breadcrumb load`
+### Inicio de sesión — `/breadcrumb load`
 
 ```
-USER RUNS: /breadcrumb
-           │
-           ▼
+USUARIO EJECUTA: /breadcrumb
+                 │
+                 ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Claude reads .claude/context/system-map.md             │
+│  Claude lee .claude/context/system-map.md               │
 │  (~400–600 tokens)                                      │
-│  → Full architecture understanding                      │
-│  → File index with one-line descriptions                │
-│  → Active features and their status                     │
-│  → Known bugs and non-obvious decisions                 │
+│  → Arquitectura completa del proyecto                   │
+│  → Índice de archivos con descripciones en una línea    │
+│  → Features activas y su estado                         │
+│  → Bugs conocidos y decisiones no obvias                │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Claude reads .claude/context/session-log.md            │
+│  Claude lee .claude/context/session-log.md              │
 │  (~100–200 tokens)                                      │
-│  → What happened in last session                        │
-│  → What is pending right now                            │
+│  → Qué pasó en la última sesión                         │
+│  → Qué está pendiente ahora mismo                       │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Compare system-map git hash vs. current HEAD           │
-│  git diff <stored_hash> HEAD --name-only                │
+│  Compara el hash git del system-map con el HEAD actual  │
+│  git diff <hash_guardado> HEAD --name-only              │
 │                                                         │
-│  No changes? ─────────────────────────────────────────▶ DONE
+│  Sin cambios? ────────────────────────────────────────▶ LISTO
 │                                                         │
-│  Files changed?                                         │
-│    └─▶ Read ONLY the changed files                      │
-│         (skip: lockfiles, assets, auto-generated)       │
+│  ¿Archivos cambiados?                                   │
+│    └─▶ Lee SOLO los archivos modificados                │
+│         (omite: lockfiles, assets, auto-generados)      │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  ✅ Context loaded. Claude reports:                     │
+│  ✅ Contexto cargado. Claude reporta:                   │
 │                                                         │
-│  📁 Project: MyApp                                      │
+│  📁 Proyecto: MiApp                                     │
 │  🔧 Stack: Next.js 14 | Supabase | Vercel | Tailwind    │
-│  📋 Last session: 2026-03-25 — SEO audit                │
-│  🔄 Changed files: 2 → app/layout.tsx, lib/i18n.ts      │
-│  📌 Pending: fix /contact, create llms.txt              │
+│  📋 Última sesión: 2026-03-25 — auditoría SEO           │
+│  🔄 Archivos cambiados: 2 → app/layout.tsx, lib/i18n.ts │
+│  📌 Pendiente: fix /contact, crear llms.txt             │
 └─────────────────────────────────────────────────────────┘
 
-Total tokens used: 300–800 (vs. 40,000+ without breadcrumb)
+Tokens totales usados: 300–800 (vs. 40,000+ sin breadcrumb)
 ```
 
 ---
 
-### Session End — `/breadcrumb update`
+### Fin de sesión — `/breadcrumb update`
 
 ```
-USER RUNS: /breadcrumb update
-           │
-           ▼
+USUARIO EJECUTA: /breadcrumb update
+                 │
+                 ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Claude identifies session changes:                     │
-│  • Files touched this session                           │
-│  • Decisions made (and WHY)                             │
-│  • Tasks completed                                      │
-│  • What remains pending                                 │
+│  Claude identifica los cambios de la sesión:            │
+│  • Archivos tocados esta sesión                         │
+│  • Decisiones tomadas (y POR QUÉ)                       │
+│  • Tareas completadas                                   │
+│  • Qué queda pendiente                                  │
 └────────────────────┬────────────────────────────────────┘
                      │
            ┌─────────┴──────────┐
@@ -104,58 +104,58 @@ USER RUNS: /breadcrumb update
 ┌──────────────────┐  ┌──────────────────────────────────┐
 │  system-map.md   │  │  session-log.md                  │
 │                  │  │                                  │
-│  Edit only the   │  │  Prepend new entry:              │
-│  lines that      │  │                                  │
-│  changed:        │  │  ## 2026-03-27 — [title]         │
-│  • FILE INDEX    │  │  Done: [tasks]                   │
-│  • FEATURES      │  │  Files: [list]                   │
-│  • BUGS          │  │  Decisions: [WHY]  ← most value  │
-│  • PENDING       │  │  Next: [steps]                   │
-│  • header hash   │  │                                  │
-│                  │  │  Keep only last 5 entries        │
-│  Max 800 tokens  │  │                                  │
+│  Edita SOLO las  │  │  Agrega nueva entrada al inicio: │
+│  líneas que      │  │                                  │
+│  cambiaron:      │  │  ## 2026-03-27 — [título]        │
+│  • FILE INDEX    │  │  Done: [tareas]                  │
+│  • FEATURES      │  │  Files: [lista]                  │
+│  • BUGS          │  │  Decisions: [POR QUÉ] ← más val. │
+│  • PENDING       │  │  Next: [próximos pasos]          │
+│  • hash header   │  │                                  │
+│                  │  │  Conserva solo las últimas 5     │
+│  Máx 800 tokens  │  │                                  │
 └──────────────────┘  └──────────────────────────────────┘
            │
            ▼
 ┌─────────────────────────────────────────────────────────┐
-│  ✅ Breadcrumb updated                                  │
-│  📝 system-map.md — 3 lines changed                     │
-│  📓 session-log.md — new entry added                    │
+│  ✅ Breadcrumb actualizado                              │
+│  📝 system-map.md — 3 líneas modificadas                │
+│  📓 session-log.md — nueva entrada agregada             │
 └─────────────────────────────────────────────────────────┘
 
-Cost: ~200 tokens
+Costo: ~200 tokens
 ```
 
 ---
 
-### First-Time Setup — `/breadcrumb init`
+### Configuración inicial — `/breadcrumb init`
 
 ```
-USER RUNS: /breadcrumb init  (only once per project)
-           │
-           ▼
+USUARIO EJECUTA: /breadcrumb init  (solo una vez por proyecto)
+                 │
+                 ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Explore codebase structure                             │
-│  • ls, find (filtered), package.json / go.mod           │
-│  • git log, current HEAD hash                           │
+│  Explora la estructura del codebase                     │
+│  • ls, find (filtrado), package.json / go.mod           │
+│  • git log, hash HEAD actual                            │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Read key architectural files selectively               │
-│  ✅ Read: entry points, config, auth, types, schema     │
-│  ❌ Skip: tests, lockfiles, assets, generated files     │
+│  Lee archivos clave de arquitectura (selectivamente)    │
+│  ✅ Lee: entry points, config, auth, tipos, schema      │
+│  ❌ Omite: tests, lockfiles, assets, archivos generados │
 └────────────────────┬────────────────────────────────────┘
                      │
            ┌─────────┴──────────┐
            ▼                    ▼
 ┌──────────────────────┐  ┌──────────────────────────────┐
-│  Generate            │  │  Generate                    │
+│  Genera              │  │  Genera                      │
 │  system-map.md       │  │  session-log.md              │
 │                      │  │                              │
-│  STACK               │  │  Initial entry with          │
-│  ARCHITECTURE        │  │  current project state       │
-│  FILE INDEX          │  │  and what was explored       │
+│  STACK               │  │  Entrada inicial con el      │
+│  ARCHITECTURE        │  │  estado actual del proyecto  │
+│  FILE INDEX          │  │  y lo que fue explorado      │
 │  ACTIVE FEATURES     │  │                              │
 │  KNOWN BUGS          │  │                              │
 │  PENDING             │  │                              │
@@ -163,75 +163,75 @@ USER RUNS: /breadcrumb init  (only once per project)
            │                             │
            └─────────────┬───────────────┘
                          ▼
-              Write to .claude/context/
-              (create directory if needed)
+              Escribe en .claude/context/
+              (crea el directorio si no existe)
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────┐
-│  ✅ Breadcrumb initialized                              │
+│  ✅ Breadcrumb inicializado                             │
 │  📁 .claude/context/system-map.md                       │
 │  📓 .claude/context/session-log.md                      │
 │                                                         │
-│  From now on:                                           │
-│    /breadcrumb        → session start                   │
-│    /breadcrumb update → session end                     │
+│  A partir de ahora:                                     │
+│    /breadcrumb        → inicio de sesión                │
+│    /breadcrumb update → fin de sesión                   │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Token Savings
+## Ahorro de tokens
 
-| Scenario | Without breadcrumb | With breadcrumb | Savings |
+| Escenario | Sin breadcrumb | Con breadcrumb | Ahorro |
 |----------|--------------------|-----------------|---------|
-| Typical session (0–2 files changed) | ~40,000 | 300–800 | **98%** |
-| New feature (10 files changed) | ~40,000 | 5,000–12,000 | **75%** |
-| Questions / consulting | ~40,000 | 300 | **99%** |
-| Massive refactor (everything changed) | ~40,000 | ~40,000 | 0% *(rare)* |
+| Sesión típica (0–2 archivos cambiaron) | ~40,000 | 300–800 | **98%** |
+| Feature nueva (10 archivos) | ~40,000 | 5,000–12,000 | **75%** |
+| Solo preguntas / consultas | ~40,000 | 300 | **99%** |
+| Refactor masivo (todo cambia) | ~40,000 | ~40,000 | 0% *(caso raro)* |
 
-> The 50% savings figure is the **conservative** estimate. Most sessions save 90–98%.
+> El ahorro del 50% es el escenario **conservador**. La mayoría de sesiones ahorra 90–98%.
 
 ---
 
-## Installation
+## Instalación
 
-### 1. Copy the skill file
+### 1. Copiar el archivo del skill
 
 ```bash
 mkdir -p ~/.claude/skills
 cp breadcrumb.md ~/.claude/skills/breadcrumb.md
 ```
 
-### 2. Initialize for your project
+### 2. Inicializar en tu proyecto
 
-Navigate to your project root and run:
+Navega a la raíz de tu proyecto y ejecuta:
 
 ```
 /breadcrumb init
 ```
 
-Claude will explore your codebase and generate:
+Claude explorará tu codebase y generará:
 ```
-your-project/
+tu-proyecto/
 └── .claude/
     └── context/
-        ├── system-map.md   ← architecture snapshot
-        └── session-log.md  ← session history
+        ├── system-map.md   ← instantánea de arquitectura
+        └── session-log.md  ← historial de sesiones
 ```
 
-### 3. Use it
+### 3. Úsalo
 
 ```
-/breadcrumb          → load context (run at start of every session)
-/breadcrumb update   → save progress (run at end of session)
+/breadcrumb          → carga contexto (ejecutar al inicio de cada sesión)
+/breadcrumb update   → guarda el progreso (ejecutar al final de la sesión)
 ```
 
 ---
 
-## The `system-map.md` Format
+## Formato del `system-map.md`
 
 ```markdown
-# System Map — MyApp
+# System Map — MiApp
 > Last updated: 2026-03-27 | git: a3f8c12
 
 ## STACK
@@ -241,100 +241,100 @@ Next.js 14 App Router | Supabase (PostgreSQL + Auth + Realtime) | Vercel | Tailw
 PUBLIC (SSR/indexed): /, /about, /pricing, /blog/*
 AUTH: /login, /register, /forgot-password
 PRIVATE (CSR/auth-gated): /dashboard/*, /settings
-MIDDLEWARE: middleware.ts → redirects unauthenticated /dashboard/* to /login
+MIDDLEWARE: middleware.ts → redirige /dashboard/* no autenticado a /login
 
 ## FILE INDEX
-app/dashboard/layout.tsx → root layout for all dashboard pages; loads profile + period context
-lib/supabase/client.ts   → browser Supabase client; singleton via useRef to avoid re-init
-hooks/useProfile.ts      → fetches user profile + currency pref; used on every dashboard page
-lib/utils/amortization.ts → French amortization calc; estimatePaidInstallments() estimates paid count from balance
+app/dashboard/layout.tsx  → layout raíz de todas las páginas del dashboard; carga profile + period context
+lib/supabase/client.ts    → cliente Supabase para el browser; singleton via useRef para evitar re-init
+hooks/useProfile.ts       → obtiene perfil de usuario + preferencia de moneda; usado en cada página del dashboard
+lib/utils/amortization.ts → cálculo de amortización francesa; estimatePaidInstallments() estima cuotas pagadas desde el saldo
 
 ## ACTIVE FEATURES
-Debts module: ✅ done | insurance_rate_mv column added (migration 074)
-Credit card installments: 🚧 in progress | 8-phase feature, phases 1–2 complete
-AI Insights: ✅ done | per-module, lazy-loaded, Supabase edge function
+Módulo deudas: ✅ listo | columna insurance_rate_mv agregada (migración 074)
+Cuotas tarjeta crédito: 🚧 en progreso | feature de 8 fases, fases 1–2 completas
+AI Insights: ✅ listo | por módulo, lazy-loaded, Supabase edge function
 
 ## KNOWN BUGS / DECISIONS
-- debt.total_paid is unreliable: use estimatePaidInstallments() × base_payment instead (can drift if payments registered without reducing balance)
-- Credit simulator restricted to super_admin: still in testing, not ready for general users
-- Supabase CLI not configured: migrations applied manually in dashboard
+- debt.total_paid no es confiable: usar estimatePaidInstallments() × cuota_base (puede desfasarse si pagos se registran sin reducir saldo)
+- Simulador crédito restringido a super_admin: aún en pruebas, no listo para usuarios generales
+- CLI de Supabase no configurado: migraciones se aplican manualmente en el dashboard
 
 ## PENDING
-- Apply migration 075 (credit card installments schema)
-- Update insurance rate on Dairon's credit to 0.12417
+- Aplicar migración 075 (schema cuotas tarjeta crédito)
+- Actualizar tasa seguro del crédito de Dairon a 0.12417
 ```
 
-**Rules for system-map:**
-- **Max 800 tokens** — compress without mercy
-- **One line per file** in FILE INDEX
-- **No prose** — only facts
-- **The KNOWN BUGS / DECISIONS section** is the most valuable: captures WHY decisions were made, which is invisible in the code
+**Reglas del system-map:**
+- **Máx 800 tokens** — comprimir sin piedad
+- **Una línea por archivo** en FILE INDEX
+- **Cero prosa** — solo hechos
+- **La sección KNOWN BUGS / DECISIONS** es la más valiosa: captura el POR QUÉ de decisiones que no son visibles en el código
 
 ---
 
-## The `session-log.md` Format
+## Formato del `session-log.md`
 
 ```markdown
 # Session Log
 
-## 2026-03-27 — debt insurance feature
-Done: added insurance_rate_mv column, checkbox in DebtDialog, derived total_paid from amortization table
+## 2026-03-27 — seguro de deudores en créditos
+Done: columna insurance_rate_mv, checkbox en DebtDialog, total_paid derivado de tabla de amortización
 Files: types/database.ts, components/modules/debts/DebtDialog.tsx, app/dashboard/debts/page.tsx
-Decisions: derive total_paid from estimatePaidInstallments() because debt.total_paid drifts when payments registered manually without updating balance
-Next: update Dairon credit insurance rate to 0.12417, apply migration manually in Supabase
+Decisions: se deriva total_paid de estimatePaidInstallments() porque debt.total_paid se desfasa cuando los pagos se registran manualmente sin actualizar el saldo
+Next: actualizar tasa seguro del crédito Dairon a 0.12417, aplicar migración manualmente en Supabase
 ---
 
-## 2026-03-25 — SEO audit
-Done: full 7-agent parallel audit, report saved to docs/seo-audit-2026-03-25.md
+## 2026-03-25 — auditoría SEO completa
+Done: auditoría completa con 7 agentes en paralelo, informe guardado en docs/seo-audit-2026-03-25.md
 Files: docs/seo-audit-2026-03-25.md
-Decisions: robots.ts not blocking AI crawlers — blockage is at Cloudflare level, not in code. Fix is CF dashboard, not repo.
-Next: fix /contact (server component), create llms.txt, add userScalable=false to layout.tsx
+Decisions: robots.ts no está bloqueando crawlers de IA — el bloqueo es a nivel Cloudflare, no en el código. Fix es en el dashboard de CF, no en el repo.
+Next: fix /contact (server component), crear llms.txt, agregar userScalable=false a layout.tsx
 ---
 ```
 
 ---
 
-## Why This Works Better Than Just Taking Notes
+## Por qué funciona mejor que tomar notas normales
 
-| Property | breadcrumb | Plain notes |
+| Propiedad | breadcrumb | Notas sueltas |
 |----------|-----------|-------------|
-| Structured and parseable | ✅ Claude knows exactly where to look | ❌ Requires interpretation |
-| Captures the WHY | ✅ Explicit Decisions section | ❌ Usually just describes what |
-| Incremental updates | ✅ Edit only changed lines | ❌ Usually rewritten from scratch |
-| Uses git as truth | ✅ Diff detects exactly what changed | ❌ Manual tracking |
-| Lives with the code | ✅ `.claude/context/` is in the repo | ❌ External or separate |
-| Survives team handoffs | ✅ Commit `.claude/context/` to git | ❌ Personal and ephemeral |
+| Estructurado y parseable | ✅ Claude sabe exactamente dónde buscar cada cosa | ❌ Requiere interpretación |
+| Captura el POR QUÉ | ✅ Sección Decisions explícita | ❌ Generalmente solo describe el qué |
+| Actualizaciones incrementales | ✅ Edita solo las líneas que cambiaron | ❌ Generalmente se reescribe todo |
+| Usa git como fuente de verdad | ✅ El diff detecta exactamente qué cambió | ❌ Seguimiento manual |
+| Vive con el código | ✅ `.claude/context/` está en el repo | ❌ Externo o separado |
+| Sobrevive handoffs de equipo | ✅ Se versiona con git | ❌ Personal y efímero |
 
 ---
 
-## Complementary to Claude's Memory System
+## Complementario al sistema de memoria de Claude
 
-breadcrumb and Claude's built-in memory system serve different purposes:
+breadcrumb y el sistema de memoria integrado de Claude tienen propósitos distintos:
 
-| System | Stores | Loaded |
+| Sistema | Qué guarda | Cuándo se carga |
 |--------|--------|--------|
-| `~/.claude/projects/.../memory/` | User preferences, feedback, collaboration style | Automatically, every session |
-| `.claude/context/` (breadcrumb) | Codebase state, file index, technical decisions | On demand via `/breadcrumb` |
+| `~/.claude/projects/.../memory/` | Preferencias del usuario, feedback, estilo de colaboración | Automáticamente, cada sesión |
+| `.claude/context/` (breadcrumb) | Estado del codebase, índice de archivos, decisiones técnicas | A demanda via `/breadcrumb` |
 
-They are **complementary, not competing**. Memory knows *how to work with you*. breadcrumb knows *what the code is*.
+Son **complementarios, no competidores**. Memory sabe *cómo trabajar contigo*. breadcrumb sabe *qué es el código*.
 
 ---
 
-## `.claude/context/` — Version Control Decision
+## `.claude/context/` — Decisión de control de versiones
 
-| Option | When to use |
+| Opción | Cuándo usarla |
 |--------|-------------|
-| **Commit to git** | Team projects — breadcrumb becomes shared knowledge |
-| **Add to `.gitignore`** | Personal/sensitive projects — keeps it local |
+| **Versionar con git** | Proyectos en equipo — breadcrumb se convierte en conocimiento compartido |
+| **Agregar a `.gitignore`** | Proyectos personales o sensibles — se mantiene local |
 
-If you version it, every team member gets project context for free. New hires can run `/breadcrumb load` on day one and understand the architecture immediately.
-
----
-
-## License
-
-MIT — use freely in personal or commercial projects.
+Si lo versionas, cada miembro del equipo obtiene el contexto del proyecto gratis. Los nuevos integrantes pueden ejecutar `/breadcrumb load` el primer día y entender la arquitectura de inmediato.
 
 ---
 
-*Built for [Claude Code](https://claude.ai/code). Designed to make every session feel like you never left.*
+## Licencia
+
+MIT — úsalo libremente en proyectos personales o comerciales.
+
+---
+
+*Construido para [Claude Code](https://claude.ai/code). Diseñado para que cada sesión se sienta como si nunca te hubieras ido.*

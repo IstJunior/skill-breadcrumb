@@ -195,14 +195,30 @@ USUARIO EJECUTA: /breadcrumb init  (solo una vez por proyecto)
 
 ## Instalación
 
-### 1. Copiar el archivo del skill
+### 1. Crear la estructura del skill
+
+Los skills de Claude Code requieren un **directorio** con un archivo `SKILL.md` adentro:
 
 ```bash
-mkdir -p ~/.claude/skills
-cp breadcrumb.md ~/.claude/skills/breadcrumb.md
+mkdir -p ~/.claude/skills/breadcrumb
+cp breadcrumb.md ~/.claude/skills/breadcrumb/SKILL.md
 ```
 
-### 2. Inicializar en tu proyecto
+La estructura debe quedar así:
+```
+~/.claude/
+└── skills/
+    └── breadcrumb/
+        └── SKILL.md
+```
+
+> **Nota:** Claude Code no reconoce archivos `.md` sueltos en `~/.claude/skills/`. El skill debe estar dentro de su propio directorio con el nombre `SKILL.md`.
+
+### 2. Verificar que el skill está disponible
+
+Abre Claude Code y escribe `/` — deberías ver `breadcrumb` en la lista de comandos disponibles.
+
+### 3. Inicializar en tu proyecto
 
 Navega a la raíz de tu proyecto y ejecuta:
 
@@ -219,7 +235,7 @@ tu-proyecto/
         └── session-log.md  ← historial de sesiones
 ```
 
-### 3. Úsalo
+### 4. Úsalo
 
 ```
 /breadcrumb          → carga contexto (ejecutar al inicio de cada sesión)
